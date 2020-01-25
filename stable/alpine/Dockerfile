@@ -51,7 +51,7 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 		--with-http_v2_module \
 	" \
 	&& addgroup -S nginx \
-	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx --uid 1001 nginx \
+	&& adduser -D -S -h /home/nginx -s /bin/sh -G nginx --uid 1001 nginx \
 	&& apk add --no-cache --virtual .build-deps \
 		gcc \
 		libc-dev \
@@ -130,21 +130,30 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 	\
 	# Bring in tzdata so users could set the timezones through the environment
 	# variables
-	&& apk add --no-cache tzdata \
+	&& apk add --no-cache tzdata openssl nginx-mod-http-lua nginx-mod-http-lua-upstream \
 	\
 	# forward request and error logs to docker log collector
 	&& ln -sf /dev/stdout /var/log/nginx/access.log \
 	&& ln -sf /dev/stderr /var/log/nginx/error.log
 
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY nginx.vh.default.conf /etc/nginx/conf.d/default.conf
+# COPY nginx.conf /etc/nginx/nginx.conf
+# COPY nginx.vh.default.conf /etc/nginx/conf.d/default.conf
 
-RUN chown -R 1001:0 /var/cache/nginx
+ADD nginx.conf /etc/nginx/nginx.conf
+ADD template.lua /usr/local/share/lua/5.1/
+ADD run.sh /usr/local/bin/run.sh
+RUN chmod +x /usr/local/bin/run.sh
+
+RUN mkdir -p /var/cache/nginx && chown -R 1001:0 /var/cache/nginx && mkdir -p /certs && chown -R 1001:0 /certs
 
 EXPOSE 8080
+EXPOSE 8443
+
 
 STOPSIGNAL SIGTERM
 
 USER 1001
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["sh", "-c", "/usr/local/bin/run.sh"]
+# CMD ["nginx", "-g", "daemon off;"]
+# CMD ["sleep", "9999999"]
